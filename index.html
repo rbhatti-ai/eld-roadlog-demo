@@ -1,46 +1,119 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>ELD RoadLog Demo - Login</title>
-  <style>
-    body { font-family: Arial, sans-serif; background: #f2f2f2; display: flex; flex-direction: column; align-items: center; margin-top: 80px; }
-    .login-box, .app-content { background: #fff; padding: 30px; border-radius: 6px; box-shadow: 0 2px 9px #ccc; width: 320px; }
-    .app-content { display: none; }
-    label { display: block; margin-bottom: 6px; }
-    input[type="text"], input[type="password"] { padding: 8px; width: 100%; box-sizing: border-box; margin-bottom: 15px; }
-    button { width: 100%; padding: 10px; background: #337ab7; color: #fff; border: none; border-radius: 4px; }
-    .error { color: red; margin-bottom: 10px; }
-  </style>
-</head>
-<body>
-  <div class="login-box">
-    <h2>Demo Login</h2>
-    <div class="error" id="error"></div>
-    <label>Username</label>
-    <input type="text" id="username" autocomplete="off">
-    <label>Password</label>
-    <input type="password" id="password" autocomplete="off">
-    <button onclick="login()">Login</button>
-  </div>
-  <div class="app-content" id="demo-content">
-    <h2>Welcome to the ELD RoadLog Demo</h2>
-    <p>This is where your assistant and demo features will appear.</p>
-    <!-- Insert your app or chatbot UI here in step 2 -->
-  </div>
+<!-- Demo ELD Log Forensic Audit App -->
+<h3>Upload ELD Log File</h3>
+<input type="file" id="logFileInput" accept=".csv,.txt">
+<button onclick="processLogFile()">Analyze Log</button>
+<div id="hosChartContainer" style="margin-top:30px; max-width:700px;">
+  anvas id="hosChart" width="700" height="400" style="display:none;"></canvas>
+</div>
+<div id="analysisReport" style="margin-top:30px;"></div>
 
+<!-- Chart.js library for graphing -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-  function login() {
-    const u = document.getElementById("username").value;
-    const p = document.getElementById("password").value;
-    const err = document.getElementById("error");
-    if (u === "demo" && p === "roadlog") {
-      document.querySelector('.login-box').style.display = 'none';
-      document.getElementById('demo-content').style.display = 'block';
-    } else {
-      err.textContent = "Invalid username or password. Try demo / roadlog.";
-    }
+let eventRows = [];
+// Simple parser for uploaded txt/csv (looks for rows with time and status keywords)
+function processLogFile() {
+  const input = document.getElementById('logFileInput');
+  const reportDiv = document.getElementById('analysisReport');
+  const chartCanvas = document.getElementById('hosChart');
+  chartCanvas.style.display = 'none';
+  if (input.files.length === 0) {
+    reportDiv.innerHTML = "<span style='color:red;'>Please choose an ELD log file (TXT/CSV) to analyze.</span>";
+    return;
   }
+  input.files[0].text().then(text => {
+    eventRows = [];
+    // Basic regex to extract event rows from sample log file (modify this if your format is different)
+    const rowRegex = /^(\d{3})\s+(\d{4})\s+(\w+)\s+([\w\- ]+)\s+(.*?)\s+(.*)$/gm;
+    let match;
+    while ((match = rowRegex.exec(text))) {
+      eventRows.push({
+        time: match[2],
+        status: match[3],
+        location: match[4],
+        odometer: match[5],
+        notes: match[6]
+      });
+    }
+    if (eventRows.length === 0) {
+      reportDiv.innerHTML = "<span style='color:red;'>File parsing failed: please make sure you upload a sample like your ELD_Driver_Log_Complete.txt.</span>";
+      return;
+    }
+    // Generate HOS graph + draft report
+    renderHOSChart(eventRows);
+    renderComplianceReport(eventRows);
+  });
+}
+
+// HOS Chart: visualizes status by hour and marks violations
+function renderHOSChart(data) {
+  const chartCanvas = document.getElementById('hosChart');
+  chartCanvas.style.display = 'block';
+  // Reduce events to timeline series
+  const statusColors = { 'OFF': '#90ee90', 'SB': '#6495ed', 'ON': '#f7cac9', 'D': '#ffa07a' };
+  const hours = [];
+  const statuses = [];
+  let hour = 0;
+  data.forEach(event => {
+    hours.push(hour++);
+    statuses.push(event.status);
+  });
+  // Chart
+  const ctx = chartCanvas.getContext('2d');
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: hours.map(h => `Hour ${h+1}`),
+      datasets: [{
+        label: 'Duty Status',
+        data: statuses.map(s => statusColors[s] ? 1 : 0),
+        backgroundColor: statuses.map(s => statusColors[s] || '#eee'),
+      }]
+    },
+    options: {
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { title: { display: true, text:'Timeline (Hour)' } },
+        y: { display: false }
+      }
+    }
+  });
+}
+
+// Main compliance report generator (uses example text, matches your skeleton)
+function renderComplianceReport(data) {
+  // Find violations in sample (dummy logic: will call AI or deep rule engine next)
+  const drivingEvents = data.filter(e => e.status === 'D');
+  const drivingHours = drivingEvents.length;
+  let violationDetected = drivingHours > 13;
+  // Sections matching your forensic audit format:
+  let report = '';
+  report += `<h2>Roadlog Professional Forensic Audit Report <small>(Demo)</small></h2>`;
+  report += `<h4>Inspection Details</h4><ul>
+      <li><strong>Date:</strong> ${new Date().toLocaleString()}</li>
+      <li><strong>Driver:</strong> Michael Johnson</li>
+      <li><strong>Carrier:</strong> Alpine Express Logistics Inc.</li>
+      <li><strong>Vehicle:</strong> Volvo VNL 860 (TRUCK-247)</li>
+    </ul>`;
+  report += `<h4>Device & ELD Data Verification</h4>
+    <p>ELD Device: Samsara ELD-2024, Status: Functioning normally<br>
+    GPS/ECM/Dispatch All records match; no tampering detected.</p>`;
+  report += `<h4>Compliance Analysis</h4>`;
+  if (violationDetected) {
+    report += `<div style="color:red;"><strong>Violation Detected:</strong> Driving time exceeded maximum permitted - see HOS graph above for timing.</div>`;
+    report += `<ul>
+        <li><strong>Critical violation:</strong> 14-hour driving window exceeded</li>
+        <li><strong>Enforcement:</strong> Out-of-Service order required</li>
+        <li><strong>Penalty Estimate:</strong> $750 driver, $1,500 carrier</li>
+      </ul>`;
+  } else {
+    report += `<div style="color:green;"><strong>No critical violations detected in this sample.</strong></div>`;
+  }
+  report += `<h4>Root Cause Analysis & Recommendations</h4>
+    <p>Scheduling pressure led to non-compliance. Recommend adjusting route scheduling, mandatory rest, and dispatcher training.</p>
+    <p>Driver is advised to maintain a three-year clean record to restore compliance status.</p>`;
+  // Signature block
+  report += `<hr><strong>Inspector: James R. Mitchell, CVSE-AB-8847</strong>`;
+  document.getElementById('analysisReport').innerHTML = report;
+}
 </script>
-</body>
-</html>
