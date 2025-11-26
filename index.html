@@ -51,7 +51,41 @@
         return;
       }
       input.files[0].text().then(text => {
-        // This is where your OpenAI function will go in the next step!
+        // async function generateAIComplianceReport(logText) {
+  const OPENAI_API_KEY = "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";
+  const reportDiv = document.getElementById('analysisReport');
+  reportDiv.innerHTML = '<em>Analyzing with OpenAI, please wait...</em>';
+  try {
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${OPENAI_API_KEY}`
+      },
+      body: JSON.stringify({
+        model: "gpt-4",
+        messages: [
+          {
+            "role": "system",
+            "content":
+              `You are a professional ELD forensic audit assistant. Using the ELD log below and the sample audit format, generate a detailed compliance report (inspection details, device verification, trip summary, violations, root cause, penalties, legal section, recommendations, signature). Match the style and language of a real forensic audit.`
+          },
+          {
+            "role": "user",
+            "content": `Here is a new ELD log to analyze:\n${logText}\n\nGenerate a forensic audit report matching all headings and detail of the sample report.`
+          }
+        ]
+      })
+    });
+    const data = await response.json();
+    reportDiv.innerHTML = data.choices?.[0]?.message?.content
+      ? `<div style="background:#f8f8ff;padding:18px;border-radius:7px;">${data.choices[0].message.content}</div>`
+      : "<span style='color:red;'>OpenAI did not generate a report, check your key or try again.</span>";
+  } catch (err) {
+    reportDiv.innerHTML = "<span style='color:red;'>AI reporting failed. Please check your API key or internet connection.</span>";
+  }
+}
+
         reportDiv.innerHTML = "<strong>File uploaded!</strong> Ready for AI analysis...";
       });
     }
